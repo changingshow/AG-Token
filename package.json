@@ -1,0 +1,135 @@
+{
+    "name": "ag-token",
+    "displayName": "AG Token",
+    "description": "实时查看 Antigravity AI 模型用量和余额",
+    "version": "0.1.0",
+    "publisher": "AG-user-ccc",
+    "engines": {
+        "vscode": "^1.85.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "keywords": [
+        "antigravity",
+        "ai",
+        "quota",
+        "gemini",
+        "claude"
+    ],
+    "icon": "media/icon.png",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/your-repo/ag-token"
+    },
+    "activationEvents": [
+        "onStartupFinished"
+    ],
+    "main": "./dist/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "agToken.showPanel",
+                "title": "AG Token: 查看配额详情",
+                "icon": "$(dashboard)"
+            },
+            {
+                "command": "agToken.refresh",
+                "title": "AG Token: 刷新配额",
+                "icon": "$(refresh)"
+            }
+        ],
+        "keybindings": [
+            {
+                "command": "agToken.refresh",
+                "key": "ctrl+shift+r",
+                "mac": "cmd+shift+r",
+                "when": "agToken.panelActive"
+            }
+        ],
+        "configuration": {
+            "title": "AG Token",
+            "properties": {
+                "agToken.autoRefresh": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "启用自动刷新"
+                },
+                "agToken.refreshInterval": {
+                    "type": "number",
+                    "default": 5,
+                    "minimum": 1,
+                    "maximum": 600,
+                    "description": "自动刷新间隔（分钟）。仅在开启自动刷新时生效。"
+                },
+                "agToken.warningThreshold": {
+                    "type": "number",
+                    "default": 30,
+                    "minimum": 5,
+                    "maximum": 50,
+                    "description": "警告阈值（%），低于此值显示黄色"
+                },
+                "agToken.criticalThreshold": {
+                    "type": "number",
+                    "default": 10,
+                    "minimum": 1,
+                    "maximum": 30,
+                    "description": "紧急阈值（%），低于此值显示红色"
+                },
+                "agToken.statusBarFormat": {
+                    "type": "string",
+                    "enum": [
+                        "emoji",
+                        "percentage",
+                        "model",
+                        "full"
+                    ],
+                    "enumDescriptions": [
+                        "仅显示颜色图标",
+                        "显示百分比",
+                        "显示模型名和图标",
+                        "显示完整信息"
+                    ],
+                    "default": "full",
+                    "description": "状态栏显示格式"
+                },
+                "agToken.enableNotifications": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "启用低配额通知"
+                },
+                "agToken.trackedModels": {
+                    "type": "array",
+                    "default": [
+                        "gemini-3-pro-high",
+                        "gemini-3-pro-image",
+                        "claude-sonnet-4-5"
+                    ],
+                    "description": "要追踪的模型列表"
+                }
+            }
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run package",
+        "compile": "webpack",
+        "watch": "webpack --watch",
+        "package": "webpack --mode production --devtool hidden-source-map",
+        "lint": "eslint src --ext ts",
+        "test": "node ./out/test/runTest.js"
+    },
+    "devDependencies": {
+        "@types/node": "^20.10.0",
+        "@types/vscode": "^1.85.0",
+        "@typescript-eslint/eslint-plugin": "^6.13.0",
+        "@typescript-eslint/parser": "^6.13.0",
+        "eslint": "^8.54.0",
+        "ts-loader": "^9.5.1",
+        "typescript": "^5.3.2",
+        "webpack": "^5.89.0",
+        "webpack-cli": "^5.1.4"
+    },
+    "dependencies": {
+        "sql.js": "^1.13.0"
+    }
+}
