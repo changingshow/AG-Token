@@ -1,6 +1,6 @@
 /**
  * Webview 面板
- * 显示配额详情的 Webview 面板 - 优化版
+ * 显示配额详情的 Webview 面板
  */
 
 import * as vscode from 'vscode';
@@ -14,9 +14,6 @@ export class QuotaPanel {
   private _disposables: vscode.Disposable[] = [];
   private _quotaData: QuotaData;
 
-  /**
-   * 创建或显示面板
-   */
   public static createOrShow(
     extensionUri: vscode.Uri,
     quotaData: QuotaData,
@@ -43,7 +40,6 @@ export class QuotaPanel {
       }
     );
 
-    // 设置面板图标
     panel.iconPath = vscode.Uri.joinPath(extensionUri, 'media', 'icon.png');
 
     QuotaPanel.currentPanel = new QuotaPanel(panel, extensionUri, quotaData, onRefresh);
@@ -102,503 +98,449 @@ export class QuotaPanel {
     const warningThreshold = config.get<number>('warningThreshold', 30);
     const criticalThreshold = config.get<number>('criticalThreshold', 10);
 
+    const iconUri = this._panel.webview.asWebviewUri(
+      vscode.Uri.joinPath(this._extensionUri, 'media', 'icon.png')
+    );
+
     return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src ${this._panel.webview.cspSource};">
   <title>AG Token</title>
   <style>
-    :root {
-      --bg-primary: var(--vscode-editor-background);
-      --bg-secondary: var(--vscode-sideBar-background);
-      --text-primary: var(--vscode-editor-foreground);
-      --text-secondary: var(--vscode-descriptionForeground);
-      --border-color: var(--vscode-widget-border);
-      --accent-color: var(--vscode-focusBorder);
-      
-      --success: #10B981;
-      --success-light: rgba(16, 185, 129, 0.15);
-      --warning: #F59E0B;
-      --warning-light: rgba(245, 158, 11, 0.15);
-      --critical: #EF4444;
-      --critical-light: rgba(239, 68, 68, 0.15);
-      
-      --radius-sm: 6px;
-      --radius-md: 10px;
-      --radius-lg: 16px;
-      
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
-      --shadow-md: 0 4px 12px rgba(0,0,0,0.12);
-      --shadow-lg: 0 8px 24px rgba(0,0,0,0.16);
-      
-      --transition-fast: 0.15s ease;
-      --transition-normal: 0.25s ease;
-      --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background-color: #f5f5f5;
+      background-image: 
+        linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      color: #333;
       line-height: 1.5;
+      padding: 24px;
+      min-height: 100vh;
     }
 
-    /* 主容器 */
-    .app {
-      max-width: 900px;
+    .container {
+      max-width: 720px;
       margin: 0 auto;
-      padding: 32px 24px;
     }
 
-    /* 头部区域 */
     .header {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      margin-bottom: 32px;
-      padding-bottom: 24px;
-      border-bottom: 1px solid var(--border-color);
+      justify-content: space-between;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #e0e0e0;
     }
 
-    .logo {
+    .brand {
       display: flex;
       align-items: center;
       gap: 12px;
     }
 
-    .logo-icon {
+    .brand-logo {
       width: 40px;
       height: 40px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      border-radius: var(--radius-md);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
-      box-shadow: var(--shadow-sm);
+      border-radius: 8px;
+      overflow: hidden;
     }
 
-    .logo-text {
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
+    .brand-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
 
-    .logo-text span {
-      opacity: 0.6;
-      font-weight: 400;
+    .brand-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
     }
 
-    /* 控制按钮组 */
-    .controls {
+    .brand-subtitle {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .header-actions {
       display: flex;
       gap: 8px;
     }
 
     .btn {
-      display: inline-flex;
+      display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 10px 18px;
+      gap: 6px;
+      padding: 8px 16px;
       font-size: 13px;
-      font-weight: 500;
-      border: none;
-      border-radius: var(--radius-sm);
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: #fff;
+      color: #555;
       cursor: pointer;
-      transition: all var(--transition-fast);
-      background: var(--vscode-button-background);
-      color: var(--vscode-button-foreground);
+      transition: all 0.2s;
     }
 
     .btn:hover {
-      background: var(--vscode-button-hoverBackground);
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-sm);
+      background: #f0f0f0;
+      border-color: #ccc;
     }
 
-    .btn:active {
-      transform: translateY(0);
+    .btn svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      fill: none;
     }
 
-    .btn-icon {
+    .btn.loading svg {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .icon-btn {
       width: 36px;
       height: 36px;
       padding: 0;
-      background: transparent;
-      color: var(--text-secondary);
-      border-radius: var(--radius-sm);
-    }
-
-    .btn-icon:hover {
-      background: var(--vscode-toolbar-hoverBackground);
-      color: var(--text-primary);
-    }
-
-    .btn .icon {
-      display: inline-block;
-    }
-
-    .btn.loading .icon {
-      display: none;
-    }
-
-    .btn .spinner {
-      display: none;
-      width: 14px;
-      height: 14px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-top-color: currentColor;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    .btn.loading .spinner {
-      display: inline-block;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    /* 统计概览区 */
-    .stats-bar {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 16px;
-      margin-bottom: 32px;
-    }
-
-    .stat-card {
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
-      padding: 16px 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .stat-label {
-      font-size: 12px;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .stat-value {
-      font-size: 28px;
-      font-weight: 700;
-      font-feature-settings: "tnum";
-    }
-
-    .stat-value.success { color: var(--success); }
-    .stat-value.warning { color: var(--warning); }
-    .stat-value.critical { color: var(--critical); }
-
-    /* 配额卡片列表 */
-    .quota-list {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .quota-card {
-      background: var(--bg-secondary);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-      transition: all var(--transition-normal);
-    }
-
-    .quota-card:hover {
-      border-color: var(--accent-color);
-      box-shadow: var(--shadow-md);
-    }
-
-    /* 卡片头部 (summary) */
-    .quota-card summary {
-      list-style: none;
-      cursor: pointer;
-      padding: 20px 24px;
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      transition: background var(--transition-fast);
-    }
-
-    .quota-card summary::-webkit-details-marker { display: none; }
-
-    .quota-card summary:hover {
-      background: rgba(128, 128, 128, 0.04);
-    }
-
-    /* 状态指示器 */
-    .status-indicator {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 22px;
-      font-weight: 700;
-      flex-shrink: 0;
     }
 
-    .status-indicator.success {
-      background: var(--success-light);
-      color: var(--success);
-    }
-
-    .status-indicator.warning {
-      background: var(--warning-light);
-      color: var(--warning);
-    }
-
-    .status-indicator.critical {
-      background: var(--critical-light);
-      color: var(--critical);
-    }
-
-    /* 卡片信息区 */
-    .quota-info {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .quota-title {
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 4px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .quota-meta {
-      font-size: 12px;
-      color: var(--text-secondary);
-      display: flex;
-      align-items: center;
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
       gap: 12px;
+      margin-bottom: 24px;
     }
 
-    .quota-meta-item {
+    .stat-card {
+      background: linear-gradient(135deg, #fff 0%, #eef2ff 100%);
+      border: 1px solid #a5b4fc;
+      border-radius: 12px;
+      padding: 20px 16px;
+      text-align: center;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 16px rgba(99,102,241,0.12);
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 40px rgba(99,102,241,0.2);
+      border-color: #818cf8;
+      background: linear-gradient(135deg, #fff 0%, #e0e7ff 100%);
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+    }
+
+    .stat-value.success { color: #059669; }
+    .stat-value.warning { color: #d97706; }
+    .stat-value.critical { color: #dc2626; }
+
+    .stat-label {
+      font-size: 12px;
+      color: #6366f1;
+      margin-top: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    .group {
+      background: linear-gradient(135deg, #fff 0%, #f8fafc 100%);
+      border: 1px solid #c7d2fe;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 16px rgba(99,102,241,0.1);
+    }
+
+    .group:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(99,102,241,0.18);
+      border-color: #a5b4fc;
+    }
+
+    .group.open {
+      box-shadow: 0 16px 48px rgba(99,102,241,0.2);
+      border-color: #818cf8;
+    }
+
+    .group-header {
       display: flex;
       align-items: center;
-      gap: 4px;
+      padding: 16px;
+      cursor: pointer;
+      user-select: none;
     }
 
-    /* 进度条区域 */
-    .progress-area {
-      flex: 1;
-      max-width: 300px;
+    .group-header:hover {
+      background: #fafafa;
     }
 
-    .progress-header {
+    .group-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
       display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-bottom: 8px;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 600;
+      color: #fff;
+      margin-right: 12px;
     }
 
-    .progress-percent {
-      font-size: 24px;
+    .group-icon.claude { background: #f97316; }
+    .group-icon.gemini { background: #3b82f6; }
+    .group-icon.openai { background: #10a37f; }
+    .group-icon.other { background: #6b7280; }
+
+    .group-info {
+      flex: 1;
+    }
+
+    .group-name {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .group-meta {
+      font-size: 12px;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    .group-percent {
+      font-size: 20px;
       font-weight: 700;
-      font-feature-settings: "tnum";
+      margin-right: 12px;
     }
 
-    .progress-percent.success { color: var(--success); }
-    .progress-percent.warning { color: var(--warning); }
-    .progress-percent.critical { color: var(--critical); }
+    .group-percent.success { color: #16a34a; }
+    .group-percent.success { color: #059669; }
+    .group-percent.warning { color: #d97706; }
+    .group-percent.critical { color: #dc2626; }
 
-    .progress-reset {
-      font-size: 11px;
-      color: var(--text-secondary);
-    }
-
-    .progress-track {
-      height: 8px;
-      background: rgba(128, 128, 128, 0.15);
-      border-radius: 4px;
-      overflow: hidden;
-    }
-
-    .progress-fill {
-      height: 100%;
-      border-radius: 4px;
-      transition: width 0.8s var(--transition-slow);
-    }
-
-    .progress-fill.success { background: linear-gradient(90deg, #10B981, #34D399); }
-    .progress-fill.warning { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
-    .progress-fill.critical { background: linear-gradient(90deg, #EF4444, #F87171); }
-
-    /* 展开箭头 */
-    .expand-arrow {
+    .group-arrow {
       width: 24px;
       height: 24px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: var(--text-secondary);
-      transition: transform var(--transition-normal);
-      flex-shrink: 0;
+      color: #6366f1;
+      font-size: 12px;
     }
 
-    details[open] .expand-arrow {
+    .group.open .group-arrow {
       transform: rotate(180deg);
     }
 
-    /* 模型列表 */
-    .model-list {
-      border-top: 1px solid var(--border-color);
-      background: rgba(0, 0, 0, 0.02);
-      padding: 8px 0;
-      animation: slideDown var(--transition-normal);
+    .models {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
     }
 
-    @keyframes slideDown {
-      from { opacity: 0; transform: translateY(-8px); }
-      to { opacity: 1; transform: translateY(0); }
+    .group.open .models {
+      max-height: 800px;
     }
 
-    .model-item {
-      padding: 12px 24px 12px 92px;
+    .models-inner {
+      border-top: 1px solid #e2e8f0;
+      background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+    }
+
+    .model {
       display: flex;
       align-items: center;
-      gap: 12px;
-      transition: background var(--transition-fast);
+      padding: 12px 16px;
+      border-bottom: 1px solid #f0f4f8;
+      transition: background 0.2s;
     }
 
-    .model-item:hover {
-      background: rgba(128, 128, 128, 0.05);
+    .model:hover {
+      background: rgba(99,102,241,0.04);
     }
 
-    .model-dot {
-      width: 6px;
-      height: 6px;
+    .model:last-child {
+      border-bottom: none;
+    }
+
+    .model-status {
+      width: 10px;
+      height: 10px;
       border-radius: 50%;
-      background: var(--text-secondary);
-      opacity: 0.5;
+      margin-right: 12px;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    .model-status.success { background: #10b981; color: #10b981; }
+    .model-status.warning { background: #f59e0b; color: #f59e0b; }
+    .model-status.critical { background: #ef4444; color: #ef4444; }
+
+    .model-info {
+      flex: 1;
     }
 
     .model-name {
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 500;
+      color: #1e293b;
     }
 
     .model-id {
       font-size: 11px;
-      color: var(--text-secondary);
-      font-family: 'SF Mono', Consolas, monospace;
+      color: #64748b;
+      font-family: monospace;
     }
 
-    /* 错误提示 */
-    .error-banner {
-      background: var(--critical-light);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      border-radius: var(--radius-md);
-      padding: 16px 20px;
-      margin-bottom: 24px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      color: var(--critical);
+    .model-percent {
+      font-size: 14px;
+      font-weight: 600;
+      margin-right: 12px;
     }
 
-    .error-icon { font-size: 20px; }
+    .model-percent.success { color: #059669; }
+    .model-percent.warning { color: #d97706; }
+    .model-percent.critical { color: #dc2626; }
 
-    /* 空状态 */
-    .empty-state {
+    .model-reset {
+      font-size: 11px;
+      color: #888;
+      padding: 2px 8px;
+      background: #f5f5f5;
+      border-radius: 4px;
+    }
+
+    .error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      color: #dc2626;
+      font-size: 14px;
+    }
+
+    .empty {
       text-align: center;
-      padding: 80px 20px;
-      color: var(--text-secondary);
+      padding: 60px 20px;
+      color: #888;
     }
 
     .empty-icon {
-      font-size: 56px;
-      margin-bottom: 16px;
-      opacity: 0.4;
+      font-size: 48px;
+      margin-bottom: 12px;
     }
 
     .empty-title {
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: var(--text-primary);
+      font-size: 16px;
+      font-weight: 500;
+      color: #555;
     }
 
-    /* 页脚 */
     .footer {
-      text-align: center;
-      padding-top: 32px;
-      margin-top: 32px;
-      border-top: 1px solid var(--border-color);
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+    }
+
+    .footer-time {
       font-size: 12px;
-      color: var(--text-secondary);
+      color: #64748b;
+    }
+
+    .footer-link {
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #fff 0%, #f0f7ff 100%);
+      border: 1px solid #c7d2fe;
+      color: #6366f1;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 8px rgba(99,102,241,0.1);
+    }
+
+    .footer-link:hover {
+      transform: translateY(-3px);
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      border-color: #6366f1;
+      color: #fff;
+      box-shadow: 0 8px 24px rgba(99,102,241,0.3);
+    }
+
+    .footer-link svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
     }
 
     .hidden { display: none !important; }
-
-    /* 响应式 */
-    @media (max-width: 600px) {
-      .quota-card summary {
-        flex-wrap: wrap;
-        gap: 16px;
-      }
-      .progress-area {
-        width: 100%;
-        max-width: none;
-      }
-    }
   </style>
 </head>
 <body>
-  <div class="app">
-    <!-- 头部 -->
+  <div class="container">
     <header class="header">
-      <div class="logo">
-        <div class="logo-icon">🚀</div>
-        <div class="logo-text">AG Token</div>
+      <div class="brand">
+        <div class="brand-logo">
+          <img src="${iconUri}" alt="logo">
+        </div>
+        <div>
+          <div class="brand-title">AG Token</div>
+          <div class="brand-subtitle">Antigravity AI 配额监控</div>
+        </div>
       </div>
-      <div class="controls">
+      <div class="header-actions">
         <button class="btn" id="refreshBtn" onclick="refresh()">
-          <span class="icon">🔄</span>
-          <span class="spinner"></span>
+          <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
           <span>刷新</span>
         </button>
-        <button class="btn btn-icon" onclick="openSettings()" title="设置">⚙️</button>
+        <button class="btn icon-btn" onclick="openSettings()" title="设置">
+          <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
       </div>
     </header>
 
-    <!-- 错误提示 -->
-    <div id="errorBanner" class="error-banner hidden">
-      <span class="error-icon">⚠️</span>
-      <span id="errorText"></span>
-    </div>
-
-    <!-- 统计概览 -->
-    <div id="statsBar" class="stats-bar"></div>
-
-    <!-- 空状态 -->
-    <div id="emptyState" class="empty-state hidden">
+    <div id="error" class="error hidden"></div>
+    <div id="stats" class="stats"></div>
+    <div id="groups"></div>
+    <div id="empty" class="empty hidden">
       <div class="empty-icon">📊</div>
       <div class="empty-title">暂无配额数据</div>
-      <p>点击刷新按钮获取最新信息</p>
     </div>
 
-    <!-- 配额列表 -->
-    <div id="quotaList" class="quota-list"></div>
-
-    <!-- 页脚 -->
-    <footer id="footer" class="footer"></footer>
+    <footer class="footer">
+      <span id="time" class="footer-time"></span>
+      <a href="https://github.com/changingshow/AG-Token" target="_blank" class="footer-link" title="GitHub">
+        <svg viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+      </a>
+    </footer>
   </div>
 
   <script>
@@ -606,145 +548,137 @@ export class QuotaPanel {
     const warningThreshold = ${warningThreshold};
     const criticalThreshold = ${criticalThreshold};
     
-    let quotaData = ${JSON.stringify(this._quotaData)};
     let isLoading = false;
-    
-    renderQuota(quotaData);
-    
-    window.addEventListener('message', event => {
-      const msg = event.data;
+    const refreshBtn = document.getElementById('refreshBtn');
+    const errorEl = document.getElementById('error');
+    const statsEl = document.getElementById('stats');
+    const groupsEl = document.getElementById('groups');
+    const emptyEl = document.getElementById('empty');
+    const timeEl = document.getElementById('time');
+
+    window.addEventListener('message', e => {
+      const msg = e.data;
       if (msg.command === 'updateQuota') {
-        quotaData = msg.data;
-        renderQuota(quotaData);
+        renderData(msg.data);
+        setLoading(false);
       } else if (msg.command === 'setLoading') {
         setLoading(msg.loading);
       }
     });
-    
+
+    renderData(${JSON.stringify(this._quotaData)});
+
     function refresh() {
       if (isLoading) return;
       setLoading(true);
       vscode.postMessage({ command: 'refresh' });
     }
-    
+
     function openSettings() {
       vscode.postMessage({ command: 'openSettings' });
     }
-    
-    function setLoading(loading) {
-      isLoading = loading;
-      const btn = document.getElementById('refreshBtn');
-      btn.classList.toggle('loading', loading);
-      btn.disabled = loading;
+
+    function setLoading(v) {
+      isLoading = v;
+      refreshBtn.disabled = v;
+      refreshBtn.classList.toggle('loading', v);
     }
-    
+
     function getType(pct) {
-      if (pct < criticalThreshold) return 'critical';
-      if (pct < warningThreshold) return 'warning';
+      if (pct <= criticalThreshold) return 'critical';
+      if (pct <= warningThreshold) return 'warning';
       return 'success';
     }
-    
-    function renderQuota(data) {
-      setLoading(false);
-      
-      const errorBanner = document.getElementById('errorBanner');
-      const statsBar = document.getElementById('statsBar');
-      const quotaList = document.getElementById('quotaList');
-      const emptyState = document.getElementById('emptyState');
-      const footer = document.getElementById('footer');
-      
-      // 处理错误
+
+    function getGroupIcon(id) {
+      if (id.includes('ANTHROPIC')) return ['claude', 'A'];
+      if (id.includes('GOOGLE')) return ['gemini', 'G'];
+      if (id.includes('OPENAI')) return ['openai', 'O'];
+      return ['other', '?'];
+    }
+
+    function toggleGroup(el) {
+      el.closest('.group').classList.toggle('open');
+    }
+
+    function renderData(data) {
       if (data.error) {
-        errorBanner.classList.remove('hidden');
-        document.getElementById('errorText').textContent = data.error;
+        errorEl.textContent = data.error;
+        errorEl.classList.remove('hidden');
       } else {
-        errorBanner.classList.add('hidden');
+        errorEl.classList.add('hidden');
       }
-      
+
       const groups = data.groups || [];
-      
-      if (!groups.length && !data.error) {
-        statsBar.innerHTML = '';
-        quotaList.innerHTML = '';
-        emptyState.classList.remove('hidden');
-        footer.textContent = '';
+      const totalModels = groups.reduce((a, g) => a + g.items.length, 0);
+
+      if (groups.length === 0) {
+        statsEl.innerHTML = '';
+        groupsEl.innerHTML = '';
+        emptyEl.classList.remove('hidden');
         return;
       }
-      
-      emptyState.classList.add('hidden');
-      
-      // 统计概览
-      const lowestPct = groups.length ? Math.min(...groups.map(g => g.percentage)) : 100;
-      const avgPct = groups.length ? Math.round(groups.reduce((a, g) => a + g.percentage, 0) / groups.length) : 0;
+
+      emptyEl.classList.add('hidden');
+
+      const lowestPct = Math.min(...groups.map(g => g.percentage));
+      const avgPct = Math.round(groups.reduce((a, g) => a + g.percentage, 0) / groups.length);
       const lowestType = getType(lowestPct);
-      
-      statsBar.innerHTML = \`
+
+      statsEl.innerHTML = \`
         <div class="stat-card">
-          <div class="stat-label">最低配额</div>
           <div class="stat-value \${lowestType}">\${lowestPct}%</div>
+          <div class="stat-label">最低配额</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">平均配额</div>
           <div class="stat-value">\${avgPct}%</div>
+          <div class="stat-label">平均配额</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">配额组数</div>
-          <div class="stat-value">\${groups.length}</div>
+          <div class="stat-value">\${totalModels}</div>
+          <div class="stat-label">模型总数</div>
         </div>
       \`;
-      
-      // 配额列表
-      quotaList.innerHTML = groups.map(group => {
-        const type = getType(group.percentage);
-        
-        const modelsHtml = group.items.map(item => \`
-          <div class="model-item">
-            <div class="model-dot"></div>
-            <div>
-              <div class="model-name">\${item.displayName}</div>
-              <div class="model-id">\${item.name}</div>
+
+      groupsEl.innerHTML = groups.map((g, i) => {
+        const type = getType(g.percentage);
+        const [iconClass, iconText] = getGroupIcon(g.id);
+
+        const modelsHtml = g.items.map(m => {
+          const mType = getType(m.percentage);
+          return \`
+            <div class="model">
+              <div class="model-status \${mType}"></div>
+              <div class="model-info">
+                <div class="model-name">\${m.displayName}</div>
+                <div class="model-id">\${m.modelId}</div>
+              </div>
+              <span class="model-percent \${mType}">\${m.percentage}%</span>
+              \${m.resetCountdown ? \`<span class="model-reset">\${m.resetCountdown}</span>\` : ''}
             </div>
-          </div>
-        \`).join('');
+          \`;
+        }).join('');
 
         return \`
-          <details class="quota-card" \${group.items.length === 1 ? 'open' : ''}>
-            <summary>
-              <div class="status-indicator \${type}">\${group.percentage}</div>
-              
-              <div class="quota-info">
-                <div class="quota-title">
-                  \${group.displayName}
-                </div>
-                <div class="quota-meta">
-                  <span class="quota-meta-item">📦 \${group.items.length} 个模型</span>
-                  <span class="quota-meta-item">⏰ \${group.resetCountdown}</span>
-                </div>
+          <div class="group">
+            <div class="group-header" onclick="toggleGroup(this)">
+              <div class="group-icon \${iconClass}">\${iconText}</div>
+              <div class="group-info">
+                <div class="group-name">\${g.displayName}</div>
+                <div class="group-meta">\${g.items.length} 个模型 · \${g.resetCountdown || '无限制'}</div>
               </div>
-              
-              <div class="progress-area">
-                <div class="progress-header">
-                  <span class="progress-percent \${type}">\${group.percentage}%</span>
-                  <span class="progress-reset">剩余配额</span>
-                </div>
-                <div class="progress-track">
-                  <div class="progress-fill \${type}" style="width: \${group.percentage}%"></div>
-                </div>
-              </div>
-              
-              <div class="expand-arrow">▼</div>
-            </summary>
-            
-            <div class="model-list">
-              \${modelsHtml}
+              <span class="group-percent \${type}">\${g.percentage}%</span>
+              <div class="group-arrow">▼</div>
             </div>
-          </details>
+            <div class="models">
+              <div class="models-inner">\${modelsHtml}</div>
+            </div>
+          </div>
         \`;
       }).join('');
-      
-      // 页脚
+
       if (data.lastUpdated) {
-        footer.textContent = '最后更新: ' + new Date(data.lastUpdated).toLocaleString('zh-CN');
+        timeEl.textContent = '更新于 ' + new Date(data.lastUpdated).toLocaleString('zh-CN');
       }
     }
   </script>

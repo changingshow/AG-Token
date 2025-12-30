@@ -40,67 +40,63 @@ export async function fetchProjectId(accessToken: string): Promise<string | unde
 }
 
 /**
- * 对模型进行分组
+ * 按 modelProvider 对模型进行分组
  */
 function groupModels(models: ModelQuota[]): import('../models/quota').QuotaGroup[] {
-    const groups: import('../models/quota').QuotaGroup[] = [];
-
-    // 按 percentage + resetTime 作为唯一键进行分组
     const groupMap = new Map<string, ModelQuota[]>();
 
+    // 按 modelProvider 分组
     for (const model of models) {
-        const isImportant = /gemini|claude|gpt|chat/i.test(model.name);
-        if (model.percentage === 100 && !isImportant) {
-            continue;
+        const provider = model.modelProvider || 'OTHER';
+        if (!groupMap.has(provider)) {
+            groupMap.set(provider, []);
         }
-
-        const key = `${model.percentage}-${model.resetTime}`;
-        if (!groupMap.has(key)) {
-            groupMap.set(key, []);
-        }
-        groupMap.get(key)!.push(model);
+        groupMap.get(provider)!.push(model);
     }
 
     // 生成 QuotaGroup
-    for (const [key, items] of groupMap.entries()) {
+    const groups: import('../models/quota').QuotaGroup[] = [];
+    
+    // 提供商显示名称映射
+    const providerDisplayNames: Record<string, string> = {
+        'MODEL_PROVIDER_ANTHROPIC': 'Claude',
+        'MODEL_PROVIDER_GOOGLE': 'Gemini',
+        'OTHER': 'Other',
+    };
+
+    for (const [provider, items] of groupMap.entries()) {
         if (items.length === 0) continue;
 
-        let displayName = '';
+        // 按百分比升序排序，找到最低配额的模型
+        items.sort((a, b) => a.percentage - b.percentage);
+        const lowestModel = items[0];
 
-        const hasClaude = items.some(i => i.name.includes('claude'));
-        const hasGemini = items.some(i => i.name.includes('gemini'));
-        const hasImage = items.some(i => i.name.includes('image'));
-
-        if (hasClaude) {
-            displayName = 'Claude';
-        } else if (hasImage) {
-            displayName = 'Gemini Drawing';
-        } else if (hasGemini) {
-            const firstGemini = items.find(i => i.name.includes('gemini'));
-            if (firstGemini) {
-                displayName = getModelDisplayName(firstGemini.name).replace(/ (High|Low|Lite|Thinking)/g, '');
-            } else {
-                displayName = 'Gemini Family';
-            }
-        } else {
-            displayName = getModelDisplayName(items[0].name);
-        }
-
-        if (groups.some(g => g.displayName === displayName)) {
-            displayName += ` (${items.length})`;
-        }
+        const displayName = providerDisplayNames[provider] || provider.replace('MODEL_PROVIDER_', '');
 
         groups.push({
-            id: key,
+            id: provider,
             displayName,
-            percentage: items[0].percentage,
-            resetTime: items[0].resetTime,
-            resetCountdown: items[0].resetCountdown,
+            percentage: lowestModel.percentage,
+            resetTime: lowestModel.resetTime,
+            resetCountdown: lowestModel.resetCountdown,
             items: items.sort((a, b) => a.name.localeCompare(b.name))
         });
     }
 
-    return groups.sort((a, b) => a.percentage - b.percentage);
+    // 固定排序顺序
+    const providerOrder: Record<string, number> = {
+        'MODEL_PROVIDER_ANTHROPIC': 0,
+        'MODEL_PROVIDER_GOOGLE': 1,
+        'MODEL_PROVIDER_OPENAI': 2,
+        'OTHER': 99,
+    };
+
+    // 按固定顺序排列
+    return groups.sort((a, b) => {
+        const orderA = providerOrder[a.id] ?? 50;
+        const orderB = providerOrder[b.id] ?? 50;
+        return orderA - orderB;
+    });
 }
 
 /**
@@ -114,6 +110,11 @@ function parseQuotaResponse(data: QuotaApiResponse, trackedModels?: string[]): Q
             continue;
         }
 
+        // 跳过内部模型
+        if (info.isInternal) {
+            continue;
+        }
+
         const quotaInfo = info.quotaInfo;
         if (quotaInfo) {
             const percentage = Math.round((quotaInfo.remainingFraction || 0) * 100);
@@ -121,10 +122,11 @@ function parseQuotaResponse(data: QuotaApiResponse, trackedModels?: string[]): Q
 
             models.push({
                 name,
-                displayName: getModelDisplayName(name),
+                displayName: info.displayName || getModelDisplayName(name),
                 percentage,
                 resetTime,
                 resetCountdown: formatCountdown(resetTime),
+                modelProvider: info.modelProvider,
             });
         }
     }

@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import type { QuotaData, QuotaGroup } from '../models/quota';
-import { getStatusIcon, createProgressBar } from '../utils/format';
 
 export class StatusBarManager {
     private statusBarItem: vscode.StatusBarItem;
@@ -57,29 +56,27 @@ export class StatusBarManager {
             return;
         }
 
-        // 找到最低配额的组
-        const lowestGroup = this.findLowestGroup(quotaData.groups);
-        if (!lowestGroup) {
-            return;
+        // 构建状态栏文本：显示所有分组的最低配额
+        const parts: string[] = [];
+        for (const group of quotaData.groups) {
+            const emoji = this.getStatusEmoji(group.percentage, warningThreshold, criticalThreshold);
+            parts.push(`${emoji}${group.displayName} ${group.percentage}%`);
         }
+        this.statusBarItem.text = parts.join(' | ');
 
-        // 设置图标
-        const icon = this.getStatusEmoji(lowestGroup.percentage, warningThreshold, criticalThreshold);
-
-        // 显示: 图标 + 组名 + 百分比
-        // 例如: 🟡 Claude: 24%
-        this.statusBarItem.text = `${icon} ${lowestGroup.displayName}: ${lowestGroup.percentage}%`;
-
-        // 设置 Tooltip
+        // 设置 Tooltip - 只显示分组信息
         this.statusBarItem.tooltip = this.buildTooltip(quotaData.groups, warningThreshold, criticalThreshold);
 
-        // 设置背景色
-        if (lowestGroup.percentage < criticalThreshold) {
-            this.statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
-        } else if (lowestGroup.percentage < warningThreshold) {
-            this.statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
-        } else {
-            this.statusBarItem.backgroundColor = undefined;
+        // 找到最低配额的组来设置背景色
+        const lowestGroup = this.findLowestGroup(quotaData.groups);
+        if (lowestGroup) {
+            if (lowestGroup.percentage < criticalThreshold) {
+                this.statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+            } else if (lowestGroup.percentage < warningThreshold) {
+                this.statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+            } else {
+                this.statusBarItem.backgroundColor = undefined;
+            }
         }
     }
 
@@ -128,7 +125,7 @@ export class StatusBarManager {
     }
 
     /**
-     * 构建 Tooltip - 优化版
+     * 构建 Tooltip - 只显示分组信息
      */
     private buildTooltip(
         groups: QuotaGroup[],
@@ -139,22 +136,19 @@ export class StatusBarManager {
         md.isTrusted = true;
         md.supportHtml = true;
 
-        // 标题
-        md.appendMarkdown(`## 🚀 AG Token\n\n`);
-
-        // 配额列表 - 使用表格形式更清晰
-        md.appendMarkdown(`| 模型组 | 配额 | 重置时间 |\n`);
-        md.appendMarkdown(`|:-------|-----:|:--------|\n`);
+        md.appendMarkdown(`## 🚀 AG Token 配额概览\n\n`);
 
         for (const group of groups) {
             const emoji = this.getStatusEmoji(group.percentage, warningThreshold, criticalThreshold);
-            const pct = `${group.percentage}%`;
-            const reset = group.resetCountdown || '-';
-
-            md.appendMarkdown(`| ${emoji} ${group.displayName} | **${pct}** | ${reset} |\n`);
+            md.appendMarkdown(`${emoji} **${group.displayName}**: ${group.percentage}%`);
+            if (group.resetCountdown) {
+                md.appendMarkdown(` (${group.resetCountdown} 后重置)`);
+            }
+            md.appendMarkdown(`\n\n`);
         }
 
-
+        md.appendMarkdown(`---\n\n`);
+        md.appendMarkdown(`<p align="center"><em>点击查看详情 👇</em></p>`);
 
         return md;
     }

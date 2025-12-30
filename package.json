@@ -20,7 +20,7 @@
     "icon": "media/icon.png",
     "repository": {
         "type": "git",
-        "url": "https://github.com/your-repo/ag-token"
+        "url": "https://github.com/changingshow/AG-Token"
     },
     "activationEvents": [
         "onStartupFinished"
@@ -97,15 +97,6 @@
                     "type": "boolean",
                     "default": true,
                     "description": "启用低配额通知"
-                },
-                "agToken.trackedModels": {
-                    "type": "array",
-                    "default": [
-                        "gemini-3-pro-high",
-                        "gemini-3-pro-image",
-                        "claude-sonnet-4-5"
-                    ],
-                    "description": "要追踪的模型列表"
                 }
             }
         }

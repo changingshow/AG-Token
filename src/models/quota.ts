@@ -14,19 +14,21 @@ export interface ModelQuota {
     resetTime: string;
     /** 倒计时字符串，如 "4h 30m" */
     resetCountdown: string;
+    /** 模型提供商 */
+    modelProvider?: string;
 }
 
 /** 配额分组 */
 export interface QuotaGroup {
-    /** 组 ID (通常是代表模型名) */
+    /** 组 ID (modelProvider) */
     id: string;
-    /** 组显示名称 (如 "Claude Series") */
+    /** 组显示名称 (如 "Claude", "Gemini") */
     displayName: string;
-    /** 剩余百分比 (组内共享) */
+    /** 组内最低剩余百分比 */
     percentage: number;
-    /** 重置时间 */
+    /** 最低配额模型的重置时间 */
     resetTime: string;
-    /** 倒计时 */
+    /** 最低配额模型的倒计时 */
     resetCountdown: string;
     /** 包含的具体模型 */
     items: ModelQuota[];
@@ -59,6 +61,9 @@ export interface TokenData {
 export interface QuotaApiResponse {
     models: {
         [modelName: string]: {
+            displayName?: string;
+            modelProvider?: string;
+            isInternal?: boolean;
             quotaInfo?: {
                 remainingFraction: number;
                 resetTime: string;
