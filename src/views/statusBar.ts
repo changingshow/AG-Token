@@ -20,8 +20,7 @@ export class StatusBarManager {
         this.statusBarItem.show();
 
         // 初始状态
-        this.statusBarItem.text = '$(sync~spin) AG';
-        this.statusBarItem.tooltip = '正在加载配额数据...';
+        this.setLoading();
     }
 
     /**
@@ -34,68 +33,104 @@ export class StatusBarManager {
 
         // 处理错误状态
         if (quotaData.error) {
-            this.statusBarItem.text = '$(error) AG';
-            this.statusBarItem.tooltip = this.buildErrorTooltip(quotaData.error);
-            this.statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+            this.setErrorState('Error', quotaData.error);
             return;
         }
 
         // 处理 403 禁止访问
         if (quotaData.isForbidden) {
-            this.statusBarItem.text = '$(lock) AG';
-            this.statusBarItem.tooltip = this.buildErrorTooltip('账号无权限访问配额 API');
-            this.statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+            this.setErrorState('Auth', '账号无权限访问配额 API');
             return;
         }
 
         // 处理无数据
         if (!quotaData.groups || quotaData.groups.length === 0) {
             this.statusBarItem.text = '$(dash) AG';
-            this.statusBarItem.tooltip = '暂无配额数据，点击查看详情';
+            this.statusBarItem.tooltip = '暂无配额数据';
             this.statusBarItem.backgroundColor = undefined;
             return;
         }
 
-        // 构建状态栏文本：显示所有分组的最低配额
+        // 1. 设置 Status Bar Text (多组显示)
+        // Format: "Claude 50%  Gemini 80%"
         const parts: string[] = [];
         for (const group of quotaData.groups) {
-            const emoji = this.getStatusEmoji(group.percentage, warningThreshold, criticalThreshold);
-            parts.push(`${emoji}${group.displayName} ${group.percentage}%`);
+            // 直接使用完整名称，不进行缩写
+            let label = group.displayName;
+
+            // 状态图标
+            let icon = '$(check)';
+            if (group.percentage < criticalThreshold) icon = '$(error)';
+            else if (group.percentage < warningThreshold) icon = '$(alert)';
+
+            parts.push(`${label} ${group.percentage}%`);
         }
-        this.statusBarItem.text = parts.join(' | ');
 
-        // 设置 Tooltip - 只显示分组信息
-        this.statusBarItem.tooltip = this.buildTooltip(quotaData.groups, warningThreshold, criticalThreshold);
+        // 使用间隔符号
+        this.statusBarItem.text = `$(pulse) ` + parts.join('   ');
 
-        // 找到最低配额的组来设置背景色
+        // 找到最低配额以决定整体颜色
         const lowestGroup = this.findLowestGroup(quotaData.groups);
-        if (lowestGroup) {
-            if (lowestGroup.percentage < criticalThreshold) {
-                this.statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
-            } else if (lowestGroup.percentage < warningThreshold) {
-                this.statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
-            } else {
-                this.statusBarItem.backgroundColor = undefined;
-            }
+        const lowestPct = lowestGroup ? lowestGroup.percentage : 100;
+
+        // 根据不同的额度剩余 显示不同的颜色 (文字/图标颜色)
+        if (lowestPct < criticalThreshold) {
+            this.statusBarItem.color = new vscode.ThemeColor('charts.red');
+        } else if (lowestPct < warningThreshold) {
+            this.statusBarItem.color = new vscode.ThemeColor('charts.yellow');
+        } else {
+            // 正常状态显示绿色，代表健康；或者使用品牌蓝色(textLink.foreground)
+            this.statusBarItem.color = new vscode.ThemeColor('charts.green');
         }
+
+        // 设置背景色 (保留作为强提示，如果觉得太强可以移除)
+        // 既然用户要求了"显示不同的颜色"，文字颜色变化可能足够了，但保留背景色更安全
+        const hasCritical = quotaData.groups.some(g => g.percentage < criticalThreshold);
+        const hasWarning = quotaData.groups.some(g => g.percentage < warningThreshold);
+
+        if (hasCritical) {
+            this.statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+            // 在错误背景下，为了确保对比度，通常文字用白色。但用户要求"不同颜色"，
+            // 我们保留 charts.red 可能会在红色背景上看不清。
+            // 策略：如果有背景色，强制文字为默认(白色)以保证可读性；或者只改变背景。
+            // 用户的需求是 "Status Bar 根据不同的额度剩余 显示不同的颜色"，可能就是指文字颜色。
+            // 如果我用了背景色，文字颜色就很难搞了。
+            // 让我们**移除**背景色逻辑，完全依靠文字颜色 (charts.red/yellow/green) 来表达状态，
+            // 这样更符合 "Unified + Minimal" 的设计理念，也不会让状态栏太突兀。
+            this.statusBarItem.backgroundColor = undefined;
+        } else if (hasWarning) {
+            // 同上，移除背景色，仅用文字颜色
+            this.statusBarItem.backgroundColor = undefined;
+        } else {
+            this.statusBarItem.backgroundColor = undefined;
+        }
+
+        // 2. 设置 Tooltip (结构化信息)
+        this.statusBarItem.tooltip = this.buildTooltip(quotaData.groups, warningThreshold, criticalThreshold);
     }
 
     /**
      * 设置加载状态
      */
     setLoading(): void {
-        this.statusBarItem.text = '$(sync~spin) 加载中...';
+        this.statusBarItem.text = '$(sync~spin) AG';
         this.statusBarItem.tooltip = '正在刷新配额...';
         this.statusBarItem.backgroundColor = undefined;
     }
 
     /**
-     * 获取状态 Emoji
+     * 设置错误状态
      */
-    private getStatusEmoji(percentage: number, warning: number, critical: number): string {
-        if (percentage < critical) return '🔴';
-        if (percentage < warning) return '🟡';
-        return '🟢';
+    private setErrorState(shortLabel: string, detailedError: string): void {
+        this.statusBarItem.text = `$(error) ${shortLabel}`;
+        const md = new vscode.MarkdownString();
+        md.isTrusted = true;
+        md.supportHtml = true;
+        md.appendMarkdown(`### ⚠️ 系统警告\n\n`);
+        md.appendMarkdown(`**${detailedError}**\n\n`);
+        md.appendMarkdown(`--- \n点击重试`);
+        this.statusBarItem.tooltip = md;
+        this.statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
     }
 
     /**
@@ -109,23 +144,32 @@ export class StatusBarManager {
     }
 
     /**
-     * 构建错误 Tooltip
+     * 生成字符进度条
+     * @param percentage 0-100
+     * @param length 字符长度 (默认为 10)
      */
-    private buildErrorTooltip(errorMessage: string): vscode.MarkdownString {
-        const md = new vscode.MarkdownString();
-        md.isTrusted = true;
-        md.supportHtml = true;
-
-        md.appendMarkdown(`## ⚠️ AG Token\n\n`);
-        md.appendMarkdown(`**错误:** ${errorMessage}\n\n`);
-        md.appendMarkdown(`---\n\n`);
-        md.appendMarkdown(`*点击重试*`);
-
-        return md;
+    private renderProgressBar(percentage: number, length: number = 10): string {
+        const filledLength = Math.round((percentage / 100) * length);
+        const emptyLength = length - filledLength;
+        // 使用 Block Element 字符: █ ▓ ▒ ░
+        // 推荐: 实心 '█' 或 阴影 '▓' + 虚线 '░'
+        const filledChar = '▓';
+        const emptyChar = '░';
+        return filledChar.repeat(filledLength) + emptyChar.repeat(emptyLength);
     }
 
     /**
-     * 构建 Tooltip - 只显示分组信息
+     * 格式化数字 (1.2M, 200K)
+     */
+    private formatNumber(num: number): string {
+        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+        if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+        return num.toString();
+    }
+
+    /**
+     * 构建结构化 Tooltip
+     * 注意：VS Code Tooltip 中的 ThemeIcon 有时需要严格格式，这里尽量用纯文本或 Emoji 保证兼容性
      */
     private buildTooltip(
         groups: QuotaGroup[],
@@ -134,21 +178,45 @@ export class StatusBarManager {
     ): vscode.MarkdownString {
         const md = new vscode.MarkdownString();
         md.isTrusted = true;
+        md.supportThemeIcons = true; // 显式允许 Theme Icons
         md.supportHtml = true;
 
-        md.appendMarkdown(`## 🚀 AG Token 配额概览\n\n`);
+        // Header
+        // md.appendMarkdown(`**Antigravity** &nbsp;|&nbsp; 运行中\n\n`);
+        // md.appendMarkdown(`---\n\n`);
+
+        // Body: Table
+        // 由于 API 只返回 percentage，没有具体 Token 数值，我们合并展示
+        // Format: Channel | Usage (Bar + %) | Reset
+
+        md.appendMarkdown(`| 渠道 (Channel) | 用量 (Usage) | 重置 (Reset) |\n`);
+        md.appendMarkdown(`| :--- | :--- | :--- |\n`);
 
         for (const group of groups) {
-            const emoji = this.getStatusEmoji(group.percentage, warningThreshold, criticalThreshold);
-            md.appendMarkdown(`${emoji} **${group.displayName}**: ${group.percentage}%`);
-            if (group.resetCountdown) {
-                md.appendMarkdown(` (${group.resetCountdown} 后重置)`);
-            }
-            md.appendMarkdown(`\n\n`);
+            // Status Icon
+            let statusIcon = '🟢';
+            if (group.percentage < criticalThreshold) statusIcon = '🔴';
+            else if (group.percentage < warningThreshold) statusIcon = '🟡';
+
+            // Progress Bar
+            const bar = this.renderProgressBar(group.percentage, 8);
+
+            // Name
+            const name = `**${group.displayName}**`;
+
+            // Usage
+            const usage = `${bar} \`${group.percentage}%\``;
+
+            // Reset Time
+            const reset = group.resetCountdown ? `\`${group.resetCountdown}\`` : '-';
+
+            md.appendMarkdown(`| ${statusIcon} ${name} | ${usage} | ${reset} |\n`);
         }
 
-        md.appendMarkdown(`---\n\n`);
-        md.appendMarkdown(`<p align="center"><em>点击查看详情 👇</em></p>`);
+        md.appendMarkdown(`\n---\n`);
+
+        // Footer: Actions
+        md.appendMarkdown(`<span style="color:#808080">点击状态栏打开仪表盘</span>`);
 
         return md;
     }
