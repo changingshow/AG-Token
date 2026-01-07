@@ -15,9 +15,7 @@ const config = {
         libraryTarget: 'commonjs2'
     },
     externals: {
-        vscode: 'commonjs vscode',
-        'sql.js': 'commonjs sql.js',
-        'sql.js/dist/sql-asm.js': 'commonjs sql.js/dist/sql-asm.js'
+        vscode: 'commonjs vscode'
     },
     resolve: {
         extensions: ['.ts', '.js']

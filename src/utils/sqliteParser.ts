@@ -4,6 +4,8 @@
  */
 
 import * as fs from 'fs';
+import * as path from 'path';
+import * as vscode from 'vscode';
 
 // 定义 sql.js 类型
 interface SqlJsDatabase {
@@ -34,6 +36,9 @@ export function setExtensionPath(path: string): void {
     extensionPath = path;
 }
 
+// Webpack-specific require to bypass bundling
+declare const __non_webpack_require__: NodeRequire;
+
 /**
  * 初始化 sql.js
  */
@@ -43,16 +48,32 @@ async function getSqlJs(): Promise<SqlJsStatic | null> {
 
     sqlJsInitPromise = (async () => {
         try {
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const initSqlJs = require('sql.js');
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const path = require('path');
-
             let wasmPath: string;
+            let initSqlJs: any;
+
+            // Use eval('require') as a fallback if __non_webpack_require__ is not defined (e.g. in tests)
+            const dynamicRequire = typeof __non_webpack_require__ !== 'undefined' ? __non_webpack_require__ : eval('require');
+
             if (extensionPath) {
-                wasmPath = path.join(extensionPath, 'node_modules', 'sql.js', 'dist');
+                // Production: Look in dist folder (bundled)
+                const distPath = path.join(extensionPath, 'dist');
+                const localJsPath = path.join(distPath, 'sql-wasm.js');
+                const localWasmPath = path.join(distPath, 'sql-wasm.wasm');
+
+                if (fs.existsSync(localJsPath) && fs.existsSync(localWasmPath)) {
+                    wasmPath = distPath;
+                    initSqlJs = dynamicRequire(localJsPath);
+                } else {
+                    // Dev/Fallback: Look in node_modules
+                    const nodeModulesPath = path.join(extensionPath, 'node_modules', 'sql.js', 'dist');
+                    wasmPath = nodeModulesPath;
+                    initSqlJs = dynamicRequire(path.join(nodeModulesPath, 'sql-wasm.js'));
+                }
             } else {
-                wasmPath = path.join(__dirname, '..', 'node_modules', 'sql.js', 'dist');
+                // Fallback when extensionPath is not set
+                const nodeModulesPath = path.join(__dirname, '..', 'node_modules', 'sql.js', 'dist');
+                wasmPath = nodeModulesPath;
+                initSqlJs = dynamicRequire(path.join(nodeModulesPath, 'sql-wasm.js'));
             }
 
             sqlJsInstance = await initSqlJs({
@@ -62,6 +83,7 @@ async function getSqlJs(): Promise<SqlJsStatic | null> {
             return sqlJsInstance;
         } catch (error) {
             console.error('[SQLite] 初始化失败:', error);
+            vscode.window.showErrorMessage(`[Debug] SQLite Init Failed: ${error instanceof Error ? error.message : String(error)}`);
             sqlJsInitPromise = null;
             return null;
         }
