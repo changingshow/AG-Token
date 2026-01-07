@@ -51,6 +51,14 @@ export class StatusBarManager {
             return;
         }
 
+        // 0. 获取图标配置
+        let iconLeft = config.get<string>('icon', 'pulse');
+        let iconRight = config.get<string>('iconRight', 'none');
+
+        // 处理 'none'
+        const leftIconText = (iconLeft && iconLeft !== 'none') ? `$(${iconLeft}) ` : '';
+        const rightIconText = (iconRight && iconRight !== 'none') ? ` $(${iconRight})` : '';
+
         // 1. 设置 Status Bar Text (多组显示)
         // Format: "Claude 50%  Gemini 80%"
         const parts: string[] = [];
@@ -58,7 +66,7 @@ export class StatusBarManager {
             // 直接使用完整名称，不进行缩写
             let label = group.displayName;
 
-            // 状态图标
+            // 状态图标 (文本内的状态，保留为 alert/error/check)
             let icon = '$(check)';
             if (group.percentage < criticalThreshold) icon = '$(error)';
             else if (group.percentage < warningThreshold) icon = '$(alert)';
@@ -67,7 +75,7 @@ export class StatusBarManager {
         }
 
         // 使用间隔符号
-        this.statusBarItem.text = `$(pulse) ` + parts.join('   ');
+        this.statusBarItem.text = `${leftIconText}${parts.join('   ')}${rightIconText}`;
 
         // 找到最低配额以决定整体颜色
         const lowestGroup = this.findLowestGroup(quotaData.groups);
@@ -79,7 +87,8 @@ export class StatusBarManager {
         } else if (lowestPct < warningThreshold) {
             this.statusBarItem.color = new vscode.ThemeColor('charts.yellow');
         } else {
-            // 正常状态显示绿色，代表健康；或者使用品牌蓝色(textLink.foreground)
+            // 正常状态显示绿色
+            // 回退到 charts.green (原始版本)
             this.statusBarItem.color = new vscode.ThemeColor('charts.green');
         }
 
