@@ -122,7 +122,8 @@ export class StatusBarManager {
      * 设置加载状态
      */
     setLoading(): void {
-        this.statusBarItem.text = '$(sync~spin) AG';
+        this.statusBarItem.text = '$(loading~spin) AG Token';
+        this.statusBarItem.color = new vscode.ThemeColor('textLink.foreground');
         this.statusBarItem.tooltip = '正在刷新配额...';
         this.statusBarItem.backgroundColor = undefined;
     }
