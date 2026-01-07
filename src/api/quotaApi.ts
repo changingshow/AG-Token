@@ -56,11 +56,12 @@ function groupModels(models: ModelQuota[]): import('../models/quota').QuotaGroup
 
     // 生成 QuotaGroup
     const groups: import('../models/quota').QuotaGroup[] = [];
-    
+
     // 提供商显示名称映射
     const providerDisplayNames: Record<string, string> = {
         'MODEL_PROVIDER_ANTHROPIC': 'Claude',
         'MODEL_PROVIDER_GOOGLE': 'Gemini',
+        'MODEL_PROVIDER_OPENAI': 'OpenAI',
         'OTHER': 'Other',
     };
 

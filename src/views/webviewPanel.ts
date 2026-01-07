@@ -112,7 +112,7 @@ export class QuotaPanel {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src ${this._panel.webview.cspSource};">
-  <title>AG Token 仪表盘</title>
+  <title>Antigravity 配额监控</title>
   <style>
     :root {
       --bg-primary: var(--vscode-editor-background);
@@ -437,7 +437,7 @@ export class QuotaPanel {
       <div class="header-branding">
         <img src="${iconUri}" class="app-icon" alt="AG" />
         <div>
-            <h1>仪表盘</h1>
+            <h1>AG Token</h1>
             <p style="color: var(--text-secondary); font-size: 13px;">Antigravity 配额监控</p>
         </div>
       </div>

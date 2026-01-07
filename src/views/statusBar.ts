@@ -192,7 +192,7 @@ export class StatusBarManager {
         // 由于 API 只返回 percentage，没有具体 Token 数值，我们合并展示
         // Format: Channel | Usage (Bar + %) | Reset
 
-        md.appendMarkdown(`| 渠道 (Channel) | 用量 (Usage) | 重置 (Reset) |\n`);
+        md.appendMarkdown(`| 渠道 | 用量 | 重置 |\n`);
         md.appendMarkdown(`| :--- | :--- | :--- |\n`);
 
         for (const group of groups) {
@@ -202,7 +202,7 @@ export class StatusBarManager {
             else if (group.percentage < warningThreshold) statusIcon = '🟡';
 
             // Progress Bar
-            const bar = this.renderProgressBar(group.percentage, 8);
+            const bar = this.renderProgressBar(group.percentage, 5);
 
             // Name
             const name = `**${group.displayName}**`;
@@ -217,9 +217,7 @@ export class StatusBarManager {
         }
 
         md.appendMarkdown(`\n---\n`);
-
-        // Footer: Actions
-        md.appendMarkdown(`<span style="color:#808080">点击状态栏打开仪表盘</span>`);
+        md.appendMarkdown(`$(dashboard)点击状态栏打开仪表盘`);
 
         return md;
     }
