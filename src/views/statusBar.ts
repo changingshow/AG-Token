@@ -168,14 +168,7 @@ export class StatusBarManager {
         return filledChar.repeat(filledLength) + emptyChar.repeat(emptyLength);
     }
 
-    /**
-     * 格式化数字 (1.2M, 200K)
-     */
-    private formatNumber(num: number): string {
-        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-        if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-        return num.toString();
-    }
+
 
     /**
      * 构建结构化 Tooltip

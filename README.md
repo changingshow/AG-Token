@@ -1,100 +1,59 @@
-# AG Token
+# AG Token - Antigravity 配额监控扩展
 
-实时查看 Antigravity AI 模型用量和余额的 VSCode 扩展。
+**AG Token** 是一款专为 Antigravity 用户设计的 VS Code 扩展。它能实时读取本地数据库，在状态栏直观展示各个 AI 模型的 Token 使用配额与剩余情况，助您随时掌握用量，合理规划开发资源。
 
-## ⚠️ 前提条件
+## ✨ 主要功能
 
-**此扩展需要 [Antigravity IDE](https://www.antigravity.dev/) 已安装并登录。**
+*   **⚡ 实时监控**：在 VS Code 状态栏实时显示 AI 模型（Claude, Gemini 等）的配额消耗百分比。
+*   **🎨 智能状态**：
+    *   **动态颜色**：根据剩余配额自动变色（🟢 充足 / 🟡 警告 / 🔴 紧急）。
+    *   **自定义图标**：支持设置为折线图、心跳波形、火箭等多种图标，左右侧可独立配置。
+*   **📊 详细仪表盘**：点击状态栏即可打开可视化仪表盘，以饼图和列表形式展示所有渠道的详细用量与重置时间。
+*   **🔔 智能通知**：当配额低于阈值时，自动发送通知提醒。
+*   **⚙️ 灵活配置**：支持自定义刷新频率、警告阈值及显示格式。
 
-本扩展通过读取 Antigravity IDE 本地存储的登录凭据来查询配额信息，不会收集或上传任何用户数据。
+## 📦 安装指南 (自行打包)
 
-## ✨ 功能
+本扩展尚未发布到 VS Code 官方市场，建议您下载源码后自行打包安装。过程非常简单，只需几步：
 
-- 📊 **状态栏显示**: 实时在状态栏显示各模型组的配额使用情况
-- 🎨 **颜色编码**: 绿色（充足）、黄色（警告）、红色（紧急）
-- 📋 **详情面板**: 点击状态栏查看所有模型的详细配额信息
-- 🔄 **自动刷新**: 可配置的自动刷新间隔
-- 🔔 **低配额通知**: 配额低于阈值时发送通知
+### 前置要求
+确保您已安装 [Node.js](https://nodejs.org/)。
 
-## 🔒 隐私说明
-
-- 本扩展**仅在本地运行**，不收集任何用户数据
-- Token 刷新通过 Google OAuth 官方 API 进行
-- 配额查询通过 Google Cloud Code API 进行
-- 所有数据仅用于本地显示，不会发送到任何第三方服务器
-
-## 🚀 使用
-
-### 快捷键
-- `Ctrl+Shift+R` / `Cmd+Shift+R`: 刷新配额（面板打开时）
-
-### 命令
-- `AG Token: 查看配额详情`: 打开详情面板 (亦可点击状态栏)
-- `AG Token: 刷新配额`: 手动刷新配额数据
-
-## ⚙️ 配置
-
-| 配置项 | 默认值 | 说明 |
-|--------|--------|------|
-| `agToken.autoRefresh` | false | 是否启用自动刷新 |
-| `agToken.refreshInterval` | 5 | 自动刷新间隔（分钟） |
-| `agToken.warningThreshold` | 30 | 警告阈值（%） |
-| `agToken.criticalThreshold` | 10 | 紧急阈值（%） |
-| `agToken.statusBarFormat` | "full" | 状态栏显示格式 |
-| `agToken.enableNotifications` | true | 启用低配额通知 |
-
-### 状态栏格式选项
-- `emoji`: 仅显示颜色图标
-- `percentage`: 显示百分比
-- `model`: 显示模型名和图标
-- `full`: 显示完整信息
-
-## 🔧 开发
-
-### 快速开始
-
+### 1. 打包生成 .vsix 文件
+在项目根目录下，打开终端运行以下命令：
 ```bash
-# 1. 克隆项目
-git clone https://github.com/changingshow/AG-Token.git
-cd AG-Token
-
-# 2. 安装依赖
-npm install
+npx vsce package
 ```
+运行成功后，目录中会生成一个名为 `ag-token-1.0.0.vsix` 的文件。
 
-### 开发模式
+### 2. 安装扩展
+有两种简单的安装方式：
 
-```bash
-# 编译（单次）
-npm run compile
+*   **方法一 (拖拽)**：直接将生成的 `.vsix` 文件拖入 VS Code 的扩展侧边栏 (Extensions) 中即可自动安装。
+*   **方法二 (菜单安装)**：
+    1. 打开 VS Code 扩展面板 (`Ctrl+Shift+X`)。
+    2. 点击面板右上角的 "..." (更多操作) 菜单。
+    3. 选择 "Install from VSIX..."。
+    4. 选择刚才生成的 `ag-token-1.0.0.vsix` 文件。
 
-# 监听模式（修改代码后自动编译）
-npm run watch
-```
+安装完成后，VS Code 状态栏右下角稍等片刻即可出现监控图标。
 
-然后按 `F5` 启动调试，会打开一个新的 VS Code 窗口加载扩展。
+## 📝 使用说明
 
-### 打包发布
+1.  **自动检测**：扩展启动后会自动尝试读取本地 Antigravity 数据库，无需手动配置路径。
+2.  **查看详情**：点击状态栏图标，打开完整仪表盘页面。
+3.  **配置选项**：
+    *   打开 VS Code 设置 (`Ctrl+,`)，搜索 `AG Token`。
+    *   **Icon**: 设置左侧图标 (如 Graph, Pulse)。
+    *   **Icon Right**: 设置右侧图标。
+    *   **Warning Threshold**: 设置警告阈值 (默认 30%)。
+    *   **Refresh Interval**: 设置自动刷新时间。
 
-```bash
-# 生产环境打包
-npm run package
+## 🛠️ 技术栈
+*   TypeScript
+*   VS Code Extension API
+*   sql.js (WASM) - 纯前端 SQLite 解析，无需本地依赖
+*   Webpack
 
-# 生成 .vsix 安装包
-npx @vscode/vsce package
-```
-
-打包成功后会在项目根目录生成 `ag-token-x.x.x.vsix` 文件。
-
-## 📝 更新日志
-
-### 0.1.0
-- 初始版本
-- 状态栏配额显示（按模型组：Claude/Gemini/OpenAI）
-- Webview 详情面板
-- 自动刷新
-- 低配额通知
-
-## 📄 许可证
-
-MIT
+---
+**Enjoy Coding!** 🚀

@@ -2,7 +2,7 @@
     "name": "ag-token",
     "displayName": "AG Token",
     "description": "实时查看 Antigravity AI 模型用量和余额",
-    "version": "0.1.9",
+    "version": "1.0.0",
     "publisher": "AG-user-ccc",
     "engines": {
         "vscode": "^1.85.0"
