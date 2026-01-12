@@ -66,6 +66,12 @@ export function activate(context: vscode.ExtensionContext) {
                 event.affectsConfiguration('agToken.refreshInterval')) {
                 setupAutoRefresh();
             }
+            // 主题切换时刷新状态栏
+            if (event.affectsConfiguration('agToken.theme')) {
+                if (quotaData) {
+                    statusBar?.update(quotaData);
+                }
+            }
         })
     );
 
